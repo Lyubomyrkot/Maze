@@ -1,4 +1,7 @@
 from pygame import *
+import random 
+
+init()
 
 FPS = 60
 TILE_SIZE = 40
@@ -14,10 +17,12 @@ clock = time.Clock()
 bg = image.load("background.jpg")
 bg = transform.scale(bg, (WIDTH, HEIGHT))
 
-player_img = image.load("hero.png")
-enemy_img = image.load("cyborg.png")
-wall_img = image.load("wall.png")
+player_img = image.load("gamer.png")
+enemy_img = image.load("enemy.png")
+wall_img = image.load("wall.jpg")
+treasure = image.load("treasure.png")
 all_sprites = sprite.Group()
+
 
 
 
@@ -42,9 +47,10 @@ class Player(BaseSprite):
         super().__init__(image, x, y, width, height)
         self.right_image = self.image
         self.left_image = transform.flip(self.image, True, False)
-        self.speed = 5
+        self.speed = 4
         self.hp = 100
         self.coins_counter = 0
+        self.damage_timer = time.get_ticks()#фіксуєм час від початку гри
     
     def update(self):
         old_pos = self.rect.x, self.rect.y
@@ -66,12 +72,45 @@ class Player(BaseSprite):
         if len(coll_list)>0:
             self.rect.x, self.rect.y = old_pos
 
+        coll_list = sprite.spritecollide(self, enemys, False, sprite.collide_mask)#перевірка на зіткнення з ворогом
+        if len(coll_list)>0:
+            now = time.get_ticks()
+            if now-self.damage_timer > 1500:
+                self.damage_timer = time.get_ticks()#обнуляєм таймер
+                self.hp -= 10
+                print("-10")
+
+            self.rect.x, self.rect.y = old_pos
+
+
 class Enemy(BaseSprite):
     def __init__(self, image, x, y, width, height):
         super().__init__(image, x, y, width, height)
         self.right_image = self.image
         self.left_image = transform.flip(self.image, True, False)
-        self.speed = 3
+        self.speed = 2
+        self.dir_list = ['left', 'right', 'up', 'down']
+        self.dir = random.choice(self.dir_list)
+
+    def update(self):
+        old_pos = self.rect.x, self.rect.y
+
+        if self.dir == 'left' and self.rect.x > 0:
+            self.rect.x -= self.speed
+            self.image = self.right_image
+        elif self.dir == 'right':
+            self.rect.x += self.speed
+            self.image = self.left_image
+        elif self.dir == 'up':
+            self.rect.y -= self.speed
+        elif self.dir == 'down':
+            self.rect.y += self.speed
+
+        coll_list = sprite.spritecollide(self, walls, False)#перевірка на зіткнення зі стіною
+        if len(coll_list)>0:
+            self.rect.x, self.rect.y = old_pos
+            self.dir = random.choice(self.dir_list)
+        
 
 
 
@@ -80,7 +119,6 @@ class Enemy(BaseSprite):
 player1 = Player(player_img, 50, 300, TILE_SIZE - 5, TILE_SIZE - 5)
 walls = sprite.Group()
 enemys = sprite.Group()
-
 
 
 #завантаження карти
@@ -97,12 +135,15 @@ with open("map.txt", "r") as file:
             if symbol == "p":
                 player1.rect.x = x
                 player1.rect.y = y
+            if symbol == "t":
+                exit_sprite = BaseSprite(treasure, x, y, TILE_SIZE, TILE_SIZE)
             x += TILE_SIZE
         x = 0
         y += TILE_SIZE
 
 
 
+finish = False
 
 #головний цикл
 run = True
@@ -110,8 +151,17 @@ while run:
     for e in event.get():
         if e.type == QUIT:
             run = False
+    
 
-    player1.update()
+    if player1.hp <= 0:
+        finish = True
+
+    if not finish:
+        player1.update()
+        enemys.update()
+
+    if sprite.collide_rect(player1, exit_sprite):
+        finish = True
 
     window.blit(bg, (0, 0))
     
