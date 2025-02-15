@@ -2,6 +2,9 @@ from pygame import *
 import random 
 
 init()
+font.init()
+
+FONT = "Play-Bold.ttf"
 
 FPS = 60
 TILE_SIZE = 40
@@ -14,16 +17,34 @@ clock = time.Clock()
 
 
 #завантаження картинок
-bg = image.load("background.jpg")
+bg = image.load("image/background.jpg")
 bg = transform.scale(bg, (WIDTH, HEIGHT))
 
-player_img = image.load("gamer.png")
-enemy_img = image.load("enemy.png")
-wall_img = image.load("wall.jpg")
-treasure = image.load("treasure.png")
+player_img = image.load("image/gamer.png")
+enemy_img = image.load("image/enemy.png")
+wall_img = image.load("image/wall.jpg")
+treasure = image.load("image/treasure.png")
+coin_img = image.load("image/coin.png")
 all_sprites = sprite.Group()
+all_labels = sprite.Group()
 
 
+
+
+#створення класу для тексту
+class Label(sprite.Sprite):
+    def __init__(self, text, x, y, fontsize = 30, color = (255, 255, 255), font_name = FONT):
+        super().__init__()
+        self.color = color
+        self.font = font.Font(FONT, fontsize)
+        self.image = self.font.render(text, True, color)
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        all_labels.add(self)
+
+    def set_text(self, new_text,color=(255, 255, 255)):
+        self.image = self.font.render(new_text, True, color)
 
 
 #створення класу для спрайтів
@@ -78,7 +99,7 @@ class Player(BaseSprite):
             if now-self.damage_timer > 1500:
                 self.damage_timer = time.get_ticks()#обнуляєм таймер
                 self.hp -= 10
-                print("-10")
+                hp_label.set_text(f"HP: {self.hp}")
 
             self.rect.x, self.rect.y = old_pos
 
@@ -120,6 +141,9 @@ player1 = Player(player_img, 50, 300, TILE_SIZE - 5, TILE_SIZE - 5)
 walls = sprite.Group()
 enemys = sprite.Group()
 
+#створення тексту
+result = Label("", 200, 250, fontsize = 70)
+hp_label = Label(f"HP: {player1.hp}", 10, 10)
 
 #завантаження карти
 with open("map.txt", "r") as file:
@@ -137,6 +161,8 @@ with open("map.txt", "r") as file:
                 player1.rect.y = y
             if symbol == "t":
                 exit_sprite = BaseSprite(treasure, x, y, TILE_SIZE, TILE_SIZE)
+            if symbol =="c":
+                coin = BaseSprite(coin_img, x, y, TILE_SIZE, TILE_SIZE)
             x += TILE_SIZE
         x = 0
         y += TILE_SIZE
@@ -155,6 +181,9 @@ while run:
 
     if player1.hp <= 0:
         finish = True
+        result.set_text("You lose")
+        result.rect.x = WIDTH/2 - result.image.get_width()/2
+        
 
     if not finish:
         player1.update()
@@ -162,9 +191,12 @@ while run:
 
     if sprite.collide_rect(player1, exit_sprite):
         finish = True
+        result.set_text("You win!")
+        result.rect.y = HEIGHT/2 - result.image.get_height()/2
 
     window.blit(bg, (0, 0))
     
     all_sprites.draw(window)
+    all_labels.draw(window)
     display.update()
     clock.tick(FPS)
