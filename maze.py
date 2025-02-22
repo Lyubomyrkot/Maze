@@ -3,6 +3,8 @@ import random
 
 init()
 font.init()
+mixer.init()
+
 
 FONT = "Play-Bold.ttf"
 
@@ -28,8 +30,13 @@ coin_img = image.load("image/coin.png")
 all_sprites = sprite.Group()
 all_labels = sprite.Group()
 
+#завантаження музики
+mixer.music.load("jungles.ogg")
+mixer.music.set_volume(0.2)
+mixer.music.play()
 
-
+kick_sound = mixer.Sound("kick.ogg")
+money_sound = mixer.Sound("money.ogg")
 
 #створення класу для тексту
 class Label(sprite.Sprite):
@@ -62,7 +69,7 @@ class BaseSprite(sprite.Sprite):
 
 
 
-
+#створення класу гравця
 class Player(BaseSprite):
     def __init__(self, image, x, y, width, height):
         super().__init__(image, x, y, width, height)
@@ -99,9 +106,16 @@ class Player(BaseSprite):
             if now-self.damage_timer > 1500:
                 self.damage_timer = time.get_ticks()#обнуляєм таймер
                 self.hp -= 10
+                kick_sound.play()
                 hp_label.set_text(f"HP: {self.hp}")
 
             self.rect.x, self.rect.y = old_pos
+        
+        coll_list = sprite.spritecollide(self, coins, True, sprite.collide_mask)#перевірка на зіткнення з монетою
+        if len(coll_list)>0:
+            self.coins_counter += 1
+            money_sound.play()
+            coins_label.set_text(f"Coins: {self.coins_counter}")
 
 
 class Enemy(BaseSprite):
@@ -140,49 +154,86 @@ class Enemy(BaseSprite):
 player1 = Player(player_img, 50, 300, TILE_SIZE - 5, TILE_SIZE - 5)
 walls = sprite.Group()
 enemys = sprite.Group()
+coins = sprite.Group()
 
 #створення тексту
 result = Label("", 200, 250, fontsize = 70)
 hp_label = Label(f"HP: {player1.hp}", 10, 10)
+coins_label = Label(f"Coins: {player1.coins_counter}", 10, 40)
+restart = Label("Press R to restart", 300, 450, fontsize = 40)
+all_labels.remove(restart)
 
-#завантаження карти
-with open("map.txt", "r") as file:
-    map = file.readlines()
-    x, y = 0, 0
-    for row in map:
-        for symbol in row:
-            if symbol == "w":
-                walls.add(BaseSprite(wall_img, x, y, TILE_SIZE, TILE_SIZE))
-            if symbol == "e":
-                enemys.add(Enemy(enemy_img, x, y, TILE_SIZE - 5, TILE_SIZE - 5))
-            
-            if symbol == "p":
-                player1.rect.x = x
-                player1.rect.y = y
-            if symbol == "t":
-                exit_sprite = BaseSprite(treasure, x, y, TILE_SIZE, TILE_SIZE)
-            if symbol =="c":
-                coin = BaseSprite(coin_img, x, y, TILE_SIZE, TILE_SIZE)
-            x += TILE_SIZE
-        x = 0
-        y += TILE_SIZE
 
 
 
-finish = False
+#завантаження карти
+def game_start():
+    global exit_sprite, run, finish
+    for wall in walls:
+        wall.kill()
+    for enemy in enemys:
+        enemy.kill()
+    for coin in coins:
+        coin.kill()
+    finish = False
+    run = True
+    player1.hp = 100
+    player1.coins_counter = 0
+    result.set_text("")
+    hp_label.set_text(f"HP: {player1.hp}")
+    coins_label.set_text(f"Coins: {player1.coins_counter}")
+    mixer.music.play()
+    all_labels.remove(restart)
 
+
+    with open("map.txt", "r") as file:
+        map = file.readlines()
+        x, y = 0, 0
+        for row in map:
+            for symbol in row:
+                if symbol == "w":
+                    walls.add(BaseSprite(wall_img, x, y, TILE_SIZE, TILE_SIZE))
+                if symbol == "e":
+                    enemys.add(Enemy(enemy_img, x, y, TILE_SIZE - 5, TILE_SIZE - 5))
+                if symbol == "p":
+                    player1.rect.x = x
+                    player1.rect.y = y
+                if symbol == "t":
+                    exit_sprite = BaseSprite(treasure, x, y, TILE_SIZE, TILE_SIZE)
+                if symbol =="c":
+                    coins.add(BaseSprite(coin_img, x, y, TILE_SIZE, TILE_SIZE))
+                x += TILE_SIZE
+            x = 0
+            y += TILE_SIZE
+
+
+
+    
+
+game_start()
 #головний цикл
-run = True
+
 while run:
     for e in event.get():
         if e.type == QUIT:
             run = False
+        if e.type == KEYDOWN:
+            if e.key == K_r and finish:
+                game_start()
+                #enemys.empty()
+
+
     
 
     if player1.hp <= 0:
         finish = True
+        kick_sound.play()
         result.set_text("You lose")
         result.rect.x = WIDTH/2 - result.image.get_width()/2
+        mixer.music.stop()
+        all_labels.add(restart)
+        restart.rect.x = WIDTH/2 - restart.image.get_width()/2
+
         
 
     if not finish:
@@ -193,6 +244,10 @@ while run:
         finish = True
         result.set_text("You win!")
         result.rect.y = HEIGHT/2 - result.image.get_height()/2
+        mixer.music.stop()
+        all_labels.add(restart)
+        restart.rect.x = WIDTH/2 - restart.image.get_width()/2
+
 
     window.blit(bg, (0, 0))
     
